@@ -26,7 +26,7 @@ const addDays = (date: string, days: number): string => {
   return d.toISOString().slice(0, 10);
 };
 const monday = (date: string): string => addDays(date, -((new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7));
-const dayName = (date: string): string => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", day: "numeric", timeZone: "UTC" });
+const dayName = (date: string): string => `${new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })} ${Number(date.slice(8))}`;
 const longDate = (date: string): string => new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 const clock = (time: string): string => {
   const [h = 0, m = 0] = time.split(":").map(Number);
@@ -34,6 +34,8 @@ const clock = (time: string): string => {
 };
 const fetchData = async (): Promise<Data> => (await fetch("/api/local", { cache: "no-store" })).json() as Promise<Data>;
 const fromRenders = (path: string) => `/api/local/file?path=${encodeURIComponent(path)}`;
+// "Who is VoiceLab for? (Overview)" → "Who is VoiceLab for?", to keep the week readable
+const short = (title: string): string => title.replace(/\s*\([^)]*\)\s*$/, "");
 const hashtags = (caption: string) => (caption.match(/#[\p{L}\p{N}_]+/gu) ?? []).length;
 
 function postThumb(post: Post): string {
@@ -205,7 +207,7 @@ export function Scheduler() {
                           <img src={postThumb(entry.post)} alt="" style={{ width: "100%", height: 96, objectFit: "cover", borderRadius: 7 }} />
                         ) : null}
                         <b style={{ fontSize: 12 }}>
-                          {clock(entry.post.time)} · {data.library.find((item) => item.key === entry.post.source)?.title ?? entry.post.id}
+                          {clock(entry.post.time)} · {short(data.library.find((item) => item.key === entry.post.source)?.title ?? entry.post.id)}
                         </b>
                         <span style={{ alignSelf: "flex-start", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: look.bg, color: look.ink }}>{look.label}</span>
                         {entry.soon && !entry.locked ? <span style={{ fontSize: 11, color: C.peachInk }}>Posting soon</span> : null}
@@ -229,7 +231,7 @@ export function Scheduler() {
           {editing ? (
             <>
               <h2 style={{ margin: 0, font: "600 18px Georgia, serif" }}>{editing.mode === "new" ? "Schedule post" : locked ? "Post" : "Edit post"}</h2>
-              <Preview editing={editing} />
+              <Preview editing={editing} title={editing.mode === "new" ? editing.item.title : (data.library.find((item) => item.key === editing.entry.post.source)?.title ?? editing.entry.post.id)} />
               {editing.mode === "edit" && editing.entry.error ? <p style={{ margin: 0, padding: 10, borderRadius: 10, background: "#F8D4D0", color: "#8A1F14", fontSize: 13 }}>Last try failed: {editing.entry.error}</p> : null}
               {editing.mode === "edit" && editing.entry.soon && !locked ? <p style={{ margin: 0, padding: 10, borderRadius: 10, background: C.peach, color: C.peachInk, fontSize: 13 }}>Posting soon: a change sent now may arrive after it has gone out.</p> : null}
               {locked ? <p style={{ margin: 0, padding: 10, borderRadius: 10, background: C.tint, color: C.green, fontSize: 13 }}>{editing.entry.status === "posted" ? "This has gone out. To change the caption, edit it in the Instagram app." : "Its time has passed, so it can't be changed here."}</p> : null}
@@ -304,9 +306,8 @@ export function Scheduler() {
   );
 }
 
-function Preview({ editing }: { editing: Editing }) {
+function Preview({ editing, title }: { editing: Editing; title: string }) {
   const media = editing.mode === "new" ? { kind: editing.item.kind, files: editing.item.files.map(fromRenders), cover: editing.item.cover ? fromRenders(editing.item.cover) : undefined } : editing.entry.post.kind === "reel" ? { kind: "reel" as const, files: [`/${editing.entry.post.video}`], cover: editing.entry.post.cover ? `/${editing.entry.post.cover}` : undefined } : { kind: "carousel" as const, files: editing.entry.post.images.map((path) => `/${path}`), cover: undefined };
-  const title = editing.mode === "new" ? editing.item.title : editing.entry.post.id;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <b>{title}</b>

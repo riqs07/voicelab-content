@@ -14,8 +14,8 @@ export function GET(request: Request): Response {
   } catch {
     return new Response("Not found", { status: 404 });
   }
-  if (!existsSync(full)) return new Response("Not found", { status: 404 });
+  if (!existsSync(/*turbopackIgnore: true*/ full)) return new Response("Not found", { status: 404 });
   const type = TYPES[path.split(".").pop()?.toLowerCase() ?? ""] ?? "application/octet-stream";
-  const stream = Readable.toWeb(createReadStream(full)) as ReadableStream;
-  return new Response(stream, { headers: { "content-type": type, "content-length": String(statSync(full).size) } });
+  const stream = Readable.toWeb(createReadStream(/*turbopackIgnore: true*/ full)) as ReadableStream;
+  return new Response(stream, { headers: { "content-type": type, "content-length": String(statSync(/*turbopackIgnore: true*/ full).size) } });
 }
