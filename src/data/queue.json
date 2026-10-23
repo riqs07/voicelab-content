@@ -1,0 +1,35 @@
+{
+  "timeZone": "America/New_York",
+  "posts": [
+    {
+      "id": "overview",
+      "date": "2026-10-27",
+      "kind": "reel",
+      "video": "media/overview/reel.mp4",
+      "cover": "media/overview/cover.jpg",
+      "caption": "Who's VoiceLab for? Anyone who's ever thought \"that came out wrong.\"\n\nThe meeting where your mind goes blank. The story that falls flat. The small talk you dread. The toast you can't stop thinking about.\n\nSpeak for a minute, see where your voice rose, fell and paused, word by word, then change one thing and say it again. A few minutes a day, and your recordings stay on your phone.\n\nWhich one's you: the meeting, the story, the small talk, or the toast? 👇\n\nJoin the waitlist: link in bio.\n\n#publicspeaking #communicationskills #confidence #smalltalk #selfimprovement"
+    },
+    {
+      "id": "nerves-um",
+      "date": "2026-10-29",
+      "kind": "carousel",
+      "images": [
+        "media/nerves-um/1.jpg",
+        "media/nerves-um/2.jpg",
+        "media/nerves-um/3.jpg",
+        "media/nerves-um/4.jpg",
+        "media/nerves-um/5.jpg",
+        "media/nerves-um/6.jpg"
+      ],
+      "caption": "Myth or fact: \"um\" and \"uh\" are mistakes? 🤔\n\nLinguists found they work like words: they tell listeners a short delay is coming. A few are normal, even useful. It's a stream of them that distracts.\n\nThe fix isn't to fight every one. Swap some for a one-second silent pause, especially right before your main point.\n\nDid you guess myth or fact? 👇\n\nSource: Clark & Fox Tree, 2002. Join the waitlist: link in bio.\n\n#publicspeaking #communicationskills #fillerwords #speakingtips #confidence"
+    },
+    {
+      "id": "drawn-live",
+      "date": "2026-10-31",
+      "kind": "reel",
+      "video": "media/drawn-live/reel.mp4",
+      "cover": "media/drawn-live/cover.jpg",
+      "caption": "Same sentence, said twice. Watch the line.\n\nThe first time, the voice goes up on “me?”, so it sounds like a question. The second time it falls, and the story lands.\n\nThat line is the real pitch of the recording, drawn as it plays. It's what VoiceLab shows you after you speak.\n\nSay “Then the gorilla just stared at me” out loud. Did yours go up or down?\n\nJoin the waitlist: link in bio.\n\n#publicspeaking #communicationskills #voicetraining #storytelling #confidence"
+    }
+  ]
+}

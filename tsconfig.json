@@ -1,0 +1,49 @@
+// TypeScript settings for the whole project
+{
+  "compilerOptions": {
+    // Target modern browsers and Node versions
+    "target": "ES2022",
+    // Make browser and modern JavaScript types available
+    "lib": ["dom", "dom.iterable", "es2022"],
+    // Let Next.js compile the code; TypeScript only checks it
+    "noEmit": true,
+    // Allow JavaScript config files to be type-checked alongside TypeScript
+    "allowJs": true,
+    // Skip checking third-party type files to keep checks fast
+    "skipLibCheck": true,
+    // Turn on every strict safety check
+    "strict": true,
+    // Treat a missing array or record entry as possibly undefined
+    "noUncheckedIndexedAccess": true,
+    // Reject unused variables so dead code does not pile up
+    "noUnusedLocals": true,
+    // Reject unused function parameters for the same reason
+    "noUnusedParameters": true,
+    // Require every code path in a function to return a value
+    "noImplicitReturns": true,
+    // Reject switch cases that fall through by accident
+    "noFallthroughCasesInSwitch": true,
+    // Use modern module syntax
+    "module": "esnext",
+    // Resolve imports the way bundlers do
+    "moduleResolution": "bundler",
+    // Allow importing JSON files such as fixed content
+    "resolveJsonModule": true,
+    // Make each file safe to compile on its own
+    "isolatedModules": true,
+    // Let React handle JSX without importing React in every file
+    "jsx": "react-jsx",
+    // Let older-style packages be imported the modern way (Next.js requires this)
+    "esModuleInterop": true,
+    // Speed up repeat type checks
+    "incremental": true,
+    // Load the Next.js type-checking plugin in editors
+    "plugins": [{ "name": "next" }],
+    // Let "@/..." imports point into the src folder
+    "paths": { "@/*": ["./src/*"] }
+  },
+  // Check all TypeScript files plus types Next.js generates
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+  // Never check installed packages
+  "exclude": ["node_modules"]
+}
