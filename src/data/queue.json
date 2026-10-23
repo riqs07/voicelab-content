@@ -4,6 +4,8 @@
     {
       "id": "overview",
       "date": "2026-10-27",
+      "time": "10:00",
+      "source": "batch-1/Overview",
       "kind": "reel",
       "video": "media/overview/reel.mp4",
       "cover": "media/overview/cover.jpg",
@@ -12,6 +14,8 @@
     {
       "id": "nerves-um",
       "date": "2026-10-29",
+      "time": "10:00",
+      "source": "carousels/nerves-um",
       "kind": "carousel",
       "images": [
         "media/nerves-um/1.jpg",
@@ -26,6 +30,8 @@
     {
       "id": "drawn-live",
       "date": "2026-10-31",
+      "time": "10:00",
+      "source": "batch-1/DrawnLive",
       "kind": "reel",
       "video": "media/drawn-live/reel.mp4",
       "cover": "media/drawn-live/cover.jpg",

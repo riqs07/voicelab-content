@@ -3,14 +3,14 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import queueFile from "@/data/queue.json";
 import { GRAPH, InstagramError, publish, refreshToken } from "./instagram";
-import { duePost, mediaUrl, queueProblems, todayIn, type Post, type Queue } from "./queue";
+import { duePost, mediaUrl, nowIn, queueProblems, type Post, type Queue } from "./queue";
 import { claimedByAnotherRun, needsRefresh, parseState } from "./state";
 
 const PUBLIC = fileURLToPath(new URL("../../public/", import.meta.url));
 const onDisk = (path: string) => existsSync(PUBLIC + path);
 
-const reel: Post = { id: "a", date: "2026-10-27", kind: "reel", video: "media/a/reel.mp4", cover: "media/a/cover.jpg", caption: "Hi #one" };
-const carousel: Post = { id: "b", date: "2026-10-29", kind: "carousel", images: ["media/b/1.jpg", "media/b/2.jpg"], caption: "Slides" };
+const reel: Post = { id: "a", date: "2026-10-27", time: "09:00", source: "batch-1/A", kind: "reel", video: "media/a/reel.mp4", cover: "media/a/cover.jpg", caption: "Hi #one" };
+const carousel: Post = { id: "b", date: "2026-10-29", time: "18:30", source: "carousels/b", kind: "carousel", images: ["media/b/1.jpg", "media/b/2.jpg"], caption: "Slides" };
 const queue: Queue = { timeZone: "America/New_York", posts: [carousel, reel] };
 
 describe("the real queue file", () => {
@@ -29,13 +29,14 @@ describe("queueProblems", () => {
     const bad: Queue = {
       timeZone: "Mars/Olympus",
       posts: [
-        { ...carousel, images: ["media/b/1.png"], date: "27 Oct" },
+        { ...carousel, images: ["media/b/1.png"], date: "27 Oct", time: "6pm" },
         { ...reel, id: "b", caption: " ", video: "media/a/reel.mov" },
       ],
     };
     const problems = queueProblems(bad, () => false).join("\n");
     expect(problems).toContain("Unknown time zone");
     expect(problems).toContain("the date must look like");
+    expect(problems).toContain("the time must look like");
     expect(problems).toContain("images must be .jpg");
     expect(problems).toContain("the id is used twice");
     expect(problems).toContain("the caption is empty");
@@ -54,26 +55,35 @@ describe("queueProblems", () => {
   });
 });
 
-describe("todayIn", () => {
-  it("uses your calendar day, not the server's", () => {
+describe("nowIn", () => {
+  it("uses your calendar and clock, not the server's", () => {
     // 02:00 UTC on the 28th is still the evening of the 27th in New York
-    expect(todayIn("America/New_York", new Date("2026-10-28T02:00:00Z"))).toBe("2026-10-27");
-    expect(todayIn("UTC", new Date("2026-10-28T02:00:00Z"))).toBe("2026-10-28");
+    expect(nowIn("America/New_York", new Date("2026-10-28T02:00:00Z"))).toEqual({ date: "2026-10-27", time: "22:00" });
+    expect(nowIn("UTC", new Date("2026-10-28T00:30:00Z"))).toEqual({ date: "2026-10-28", time: "00:30" });
   });
 });
 
 describe("duePost", () => {
-  it("picks the oldest due post that hasn't gone out", () => {
-    expect(duePost(queue, new Set(), "2026-10-26")).toBe(null);
-    expect(duePost(queue, new Set(), "2026-10-29")?.id).toBe("a");
-    expect(duePost(queue, new Set(["a"]), "2026-10-29")?.id).toBe("b");
-    expect(duePost(queue, new Set(["a", "b"]), "2026-10-30")).toBe(null);
+  const at = (date: string, time: string) => ({ date, time });
+
+  it("waits for the post's time, not just its day", () => {
+    expect(duePost(queue, new Set(), at("2026-10-27", "08:59"))).toBe(null);
+    expect(duePost(queue, new Set(), at("2026-10-27", "09:00"))?.id).toBe("a");
+    expect(duePost(queue, new Set(["a"]), at("2026-10-29", "18:00"))).toBe(null);
+    expect(duePost(queue, new Set(["a"]), at("2026-10-29", "18:45"))?.id).toBe("b");
+  });
+
+  it("posts the earliest first, one at a time", () => {
+    const sameDay: Queue = { ...queue, posts: [{ ...carousel, date: "2026-10-27", time: "13:00" }, reel] };
+    expect(duePost(sameDay, new Set(), at("2026-10-27", "14:00"))?.id).toBe("a");
+    expect(duePost(sameDay, new Set(["a"]), at("2026-10-27", "14:00"))?.id).toBe("b");
   });
 
   it("never posts something more than two days late", () => {
-    expect(duePost(queue, new Set(), "2026-10-29")?.id).toBe("a");
-    expect(duePost(queue, new Set(), "2026-10-30")?.id).toBe("b");
-    expect(duePost(queue, new Set(["b"]), "2026-10-30")).toBe(null);
+    expect(duePost(queue, new Set(), at("2026-10-29", "08:00"))?.id).toBe("a");
+    expect(duePost(queue, new Set(["a"]), at("2026-10-30", "08:00"))?.id).toBe("b");
+    expect(duePost(queue, new Set(), at("2026-10-31", "23:00"))?.id).toBe("b");
+    expect(duePost(queue, new Set(), at("2026-11-01", "00:00"))).toBe(null);
   });
 });
 

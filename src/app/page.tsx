@@ -1,6 +1,7 @@
-// The post queue, for checking a branch's preview before merging it. Merging into main is the
-// approval: the production deployment posts each one on its date. Production shows nothing here.
+// On your computer (pnpm dev): the scheduler. On a preview deployment: the queue, read-only.
+// On production: nothing; the production deployment only serves media to Instagram and posts.
 import queueFile from "@/data/queue.json";
+import { Scheduler } from "./Scheduler";
 import type { Post, Queue } from "@/lib/queue";
 
 const queue = queueFile as Queue;
@@ -30,18 +31,21 @@ function Media({ post }: { post: Post }) {
 }
 
 export default function QueuePage() {
+  if (process.env.NODE_ENV === "development" && !process.env.VERCEL) return <Scheduler />;
   if (process.env.VERCEL_ENV === "production") return <p style={{ padding: 24 }}>Nothing to see here.</p>;
-  const posts = [...queue.posts].sort((a, b) => a.date.localeCompare(b.date));
+  const posts = [...queue.posts].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
   return (
     <main style={{ maxWidth: 720, margin: "0 auto", padding: "32px 16px 48px", display: "flex", flexDirection: "column", gap: 20 }}>
       <h1 style={{ margin: 0, fontSize: 40 }}>Post queue</h1>
       <p style={{ margin: 0, fontSize: 18, color: "#59645C", lineHeight: 1.5 }}>
-        These go to Instagram once a day, on their date ({queue.timeZone.replace("_", " ")} time). Merging this branch approves them. Edit dates and captions in <code>social/src/data/queue.json</code>.
+        These go to Instagram at their time, within about an hour ({queue.timeZone.replace("_", " ")} time). Plan and change them with the scheduler on your computer.
       </p>
       {posts.map((post) => (
         <section key={post.id} style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 24 }}>{nice(post.date)}</h2>
+            <h2 style={{ margin: 0, fontSize: 24 }}>
+              {nice(post.date)} · {post.time}
+            </h2>
             <span style={{ fontSize: 14, fontWeight: 700, color: "#59645C" }}>{post.kind === "reel" ? "Reel" : `Carousel · ${post.images.length} slides`}</span>
           </div>
           <Media post={post} />

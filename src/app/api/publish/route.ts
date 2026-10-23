@@ -1,9 +1,9 @@
-// GET /api/publish: run once a day by Vercel Cron (see vercel.json). Publishes the post from
-// src/data/queue.json that is due today, if any. Add ?dry=1 to see what it would post without posting.
+// GET /api/publish: run every hour by GitHub Actions (.github/workflows/social-publish.yml). Publishes the
+// post from src/data/queue.json whose time has come, if any. Add ?dry=1 to see what it would post without posting.
 // Needs, in the hosting settings (never in git): CRON_SECRET, INSTAGRAM_ACCESS_TOKEN, and a connected Blob store.
 import queueFile from "@/data/queue.json";
 import { InstagramError, publish, refreshToken } from "@/lib/instagram";
-import { duePost, mediaUrl, queueProblems, todayIn, type Queue } from "@/lib/queue";
+import { duePost, mediaUrl, nowIn, queueProblems, type Queue } from "@/lib/queue";
 import { claimedByAnotherRun, needsRefresh } from "@/lib/state";
 import { loadState, saveState } from "@/lib/store";
 import { publicUrl } from "@/lib/publicUrl";
@@ -14,7 +14,7 @@ export const maxDuration = 300;
 const queue = queueFile as Queue;
 
 export async function GET(request: Request): Promise<Response> {
-  // Vercel Cron sends "Authorization: Bearer <CRON_SECRET>"; anyone else is turned away
+  // The clock sends "Authorization: Bearer <CRON_SECRET>"; anyone else is turned away
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return new Response("Unauthorized", { status: 401 });
   // Only the production deployment posts, so a preview of a branch can never publish
@@ -26,7 +26,8 @@ export async function GET(request: Request): Promise<Response> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return Response.json({ ok: false, message: "No Blob store is connected to the project" }, { status: 503 });
 
   const now = new Date();
-  const today = todayIn(queue.timeZone, now);
+  const here = nowIn(queue.timeZone, now);
+  const localTime = `${here.date} ${here.time}`;
   let { state, etag } = await loadState();
 
   // Keep the token alive: refresh about weekly and keep the new one. A failed refresh isn't fatal
@@ -45,13 +46,13 @@ export async function GET(request: Request): Promise<Response> {
     }
   }
 
-  const post = duePost(queue, new Set(Object.keys(state.published)), today);
-  if (!post) return Response.json({ ok: true, today, posted: null });
+  const post = duePost(queue, new Set(Object.keys(state.published)), here);
+  if (!post) return Response.json({ ok: true, localTime, posted: null });
 
   const base = publicUrl();
   if (new URL(request.url).searchParams.get("dry") === "1") {
     const media = post.kind === "reel" ? [post.video, ...(post.cover ? [post.cover] : [])] : post.images;
-    return Response.json({ ok: true, today, wouldPost: post.id, media: media.map((path) => mediaUrl(base, path)) });
+    return Response.json({ ok: true, localTime, wouldPost: post.id, media: media.map((path) => mediaUrl(base, path)) });
   }
 
   // Claim the post first: if another run saved in between, it is posting and this one backs off
@@ -64,12 +65,12 @@ export async function GET(request: Request): Promise<Response> {
     // Saving without the claim or the last error clears both
     await saveState({ token: state.token, published: { ...state.published, [post.id]: { mediaId, at: new Date().toISOString() } } }, claimed);
     console.log(`Social: posted ${post.id} as ${mediaId}`);
-    return Response.json({ ok: true, today, posted: post.id, mediaId });
+    return Response.json({ ok: true, localTime, posted: post.id, mediaId });
   } catch (error) {
     const message = error instanceof InstagramError ? error.message : "Unexpected error while posting";
     console.error(`Social: ${post.id} failed`, error instanceof Error ? error.message : error);
     // Saving without the claim releases it, so tomorrow's run tries again
     await saveState({ token: state.token, published: state.published, lastError: { postId: post.id, message, at: new Date().toISOString() } }, claimed);
-    return Response.json({ ok: false, today, failed: post.id, message }, { status: 502 });
+    return Response.json({ ok: false, localTime, failed: post.id, message }, { status: 502 });
   }
 }
