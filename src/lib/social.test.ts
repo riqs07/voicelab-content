@@ -9,8 +9,8 @@ import { claimedByAnotherRun, needsRefresh, parseState } from "./state";
 const PUBLIC = fileURLToPath(new URL("../../public/", import.meta.url));
 const onDisk = (path: string) => existsSync(PUBLIC + path);
 
-const reel: Post = { id: "a", date: "2026-10-27", time: "09:00", source: "batch-1/A", kind: "reel", video: "media/a/reel.mp4", cover: "media/a/cover.jpg", caption: "Hi #one" };
-const carousel: Post = { id: "b", date: "2026-10-29", time: "18:30", source: "carousels/b", kind: "carousel", images: ["media/b/1.jpg", "media/b/2.jpg"], caption: "Slides" };
+const reel: Post = { id: "a", date: "2026-10-27", time: "09:00", source: "a", kind: "reel", video: "media/a/reel.mp4", cover: "media/a/cover.jpg", caption: "Hi #one" };
+const carousel: Post = { id: "b", date: "2026-10-29", time: "18:30", source: "b", kind: "carousel", images: ["media/b/1.jpg", "media/b/2.jpg"], caption: "Slides" };
 const queue: Queue = { timeZone: "America/New_York", posts: [carousel, reel] };
 
 describe("the real queue file", () => {

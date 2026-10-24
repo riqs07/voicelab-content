@@ -48,7 +48,7 @@ export function unsentChanges(local: Post[], sent: ReadonlyMap<string, Post> | n
   return changed + removed;
 }
 
-// Items whose every scheduled post has gone out, so their files can move to renders/posted/.
+// Items whose every scheduled post has gone out, so their files can move to library/posted/.
 // An item scheduled twice waits for the second; an item never scheduled never moves.
 export function readyToMove(items: LibraryItem[], posts: Post[], posted: ReadonlySet<string>): LibraryItem[] {
   return items.filter((item) => {

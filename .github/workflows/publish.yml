@@ -1,0 +1,31 @@
+# The clock for the Instagram publisher: every hour it asks the publisher to post anything due.
+# Needs, in GitHub → Settings → Secrets and variables → Actions:
+#   secret   SOCIAL_CRON_SECRET  the same value as CRON_SECRET in the publisher's Vercel project
+#   variable SOCIAL_URL          the publisher's address, e.g. https://voicelab-social.vercel.app
+# A failed run (a post Instagram refused, a wrong secret) makes GitHub email you.
+name: Post to Instagram
+
+on:
+  schedule:
+    # Seven minutes past each hour (UTC); GitHub may start it a little late when busy
+    - cron: "7 * * * *"
+  # A "Run workflow" button in the Actions tab, for trying it by hand
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Ask the publisher to post what's due
+        env:
+          SECRET: ${{ secrets.SOCIAL_CRON_SECRET }}
+          URL: ${{ vars.SOCIAL_URL }}
+        run: |
+          if [ -z "$SECRET" ] || [ -z "$URL" ]; then echo "Set SOCIAL_CRON_SECRET and SOCIAL_URL first"; exit 1; fi
+          status=$(curl -sS -o reply.json -w "%{http_code}" --max-time 330 -H "Authorization: Bearer $SECRET" "$URL/api/publish")
+          cat reply.json; echo
+          # 409 means another run is posting at this moment, which is fine
+          if [ "$status" != "200" ] && [ "$status" != "409" ]; then echo "The publisher answered $status"; exit 1; fi

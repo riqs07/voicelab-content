@@ -1,18 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { byNumber, captionFrom, headingFrom, humanize, parseReelCaptions } from "./library";
+import { byNumber, captionFrom, headingFrom, humanize } from "./library";
 import type { Post } from "./queue";
 import type { LibraryItem } from "./library";
 import { isLocked, postingSoon, readyToMove, statusOf, unsentChanges, type ServerReport } from "./status";
 
 describe("caption files", () => {
-  const batch = "# Batch 1\n\n## 1. Your voice, drawn live\nVideo: `DrawnLive-story.mp4` · Cover: `covers/DrawnLive-cover.png`\n\n```\nSame sentence, said twice.\n\n#publicspeaking\n```\n\n---\n\n## 2. Um rain\nVideo: `UmRain-story.mp4`\n\n```\nHow many?\n```\n";
-
-  it("finds each Reel's title and caption by its video file", () => {
-    const found = parseReelCaptions(batch);
-    expect(found.get("DrawnLive-story.mp4")).toEqual({ title: "Your voice, drawn live", caption: "Same sentence, said twice.\n\n#publicspeaking" });
-    expect(found.get("UmRain-story.mp4")?.title).toBe("Um rain");
-  });
-
   it("reads a carousel's caption.md, or a plain caption.txt", () => {
     const md = '# Carousel: "Um" and "uh" are mistakes. (Myth)\n\nPost them in order.\n\n```\nMyth or fact?\n```\n';
     expect(headingFrom(md)).toBe('"Um" and "uh" are mistakes. (Myth)');
@@ -67,10 +59,10 @@ describe("readyToMove", () => {
   const post = (id: string, source: string): Post => ({ id, source, date: "2026-10-30", time: "10:00", kind: "reel", video: `media/${id}/reel.mp4`, caption: "x" });
 
   it("moves an item only once everything scheduled from it has gone out", () => {
-    const items = [item("batch-1/A"), item("batch-1/B"), item("batch-1/C"), item("batch-1/D", true)];
-    const posts = [post("a1", "batch-1/A"), post("b1", "batch-1/B"), post("b2", "batch-1/B"), post("d1", "batch-1/D")];
+    const items = [item("A"), item("B"), item("C"), item("D", true)];
+    const posts = [post("a1", "A"), post("b1", "B"), post("b2", "B"), post("d1", "D")];
     const moving = readyToMove(items, posts, new Set(["a1", "b1", "d1"])).map((entry) => entry.key);
     // A: its only post went out. B: one still waiting. C: never scheduled. D: already in posted/
-    expect(moving).toEqual(["batch-1/A"]);
+    expect(moving).toEqual(["A"]);
   });
 });

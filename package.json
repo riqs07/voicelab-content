@@ -1,8 +1,9 @@
 {
-  "name": "voicelab-social",
+  "name": "voicelab-content",
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "schedule": "pnpm install && next dev",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

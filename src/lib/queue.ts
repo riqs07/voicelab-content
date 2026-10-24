@@ -1,14 +1,14 @@
 // The Instagram post queue: what each post is, checking the queue file, and picking the post that is due now.
 // Kept free of Next.js so it can be unit tested. The queue itself is src/data/queue.json.
 
-// Every post has a day and a time in the queue's time zone, and the renders/ item it came from
+// Every post has a day and a time in the queue's time zone, and the library/ item it came from
 type Base = { id: string; date: string; time: string; source: string; caption: string };
 
 export type Post =
   // One or more photos (2 or more make a carousel), JPEG only: Instagram's API refuses PNG
   | (Base & { kind: "carousel"; images: string[] })
   // A 9:16 MP4, posted as a Reel (the default) or a Story (24 hours, no caption). Its cover is a JPEG
-  // (cover, copied from coverSource in renders/) or a moment in the video (coverFrame, in seconds).
+  // (cover, copied from coverSource in library/) or a moment in the video (coverFrame, in seconds).
   | (Base & { kind: "reel"; video: string; as?: "reel" | "story"; cover?: string; coverSource?: string; coverFrame?: number });
 
 export type Queue = { timeZone: string; posts: Post[] };

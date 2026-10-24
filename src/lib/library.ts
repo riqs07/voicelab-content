@@ -1,27 +1,24 @@
-// What's ready to post: everything finished in renders/. The scheduler only ever posts from here, so a new
-// photo or video starts life as a file in renders/ (for your own, a folder in renders/uploads/).
-// Once posted, an item's files move to renders/posted/ in the same layout.
-//   renders/batch-*/X-story.mp4          a Reel (9:16); its cover is covers/X-cover.png, its caption is in
-//                                         captions.md. X-feed.mp4 (4:5, for other platforms) moves with it
-//   renders/carousels/<name>/1.png ...   a carousel (or a single photo), caption in caption.md
-//   renders/uploads/<name>/              a folder with one .mp4 (a Reel, optional cover.png/.jpg) or images,
-//                                         and an optional caption.md or caption.txt
-// The parsing here is plain logic; scan.ts reads the folders.
+// What's ready to post: everything in library/, one folder per item. The scheduler only ever posts from here,
+// so anything new starts life as a folder in library/. Once posted, the folder moves to library/posted/.
+//   library/<name>/<name>.mp4 + cover.png + caption.md     a Reel or Story (9:16 only); other images can be covers
+//   library/<name>/1.png 2.png ... + caption.md            a carousel (or one photo), up to 10 images
+// The caption is the first ``` block in caption.md (or all of caption.txt); the title is caption.md's # heading.
+// The parsing here is plain logic; local/scan.ts reads the folders.
 
 export type LibraryItem = {
-  // Folder and name under renders/, e.g. "batch-1/Overview" or "carousels/nerves-um"
+  // The folder's name in library/, e.g. "overview" or "nerves-um"
   key: string;
   kind: "reel" | "carousel";
   title: string;
   caption: string;
-  // Paths under renders/: the video, or the images in order
+  // Paths under library/: the video, or the images in order
   files: string[];
   cover?: string;
-  // Other images that could be its cover (paths under renders/)
+  // Other images that could be its cover (paths under library/)
   coverOptions: string[];
-  // Everything that moves to renders/posted/ with it: its files, or its whole folder
+  // What moves to library/posted/ once it has posted: its folder
   moves: string[];
-  // In renders/posted/: already on Instagram
+  // In library/posted/: already on Instagram
   posted: boolean;
   // Anything that would stop it posting (shown in the scheduler, never posted)
   problems: string[];
@@ -42,18 +39,6 @@ export function captionFrom(text: string): string {
 export function headingFrom(text: string): string | null {
   const match = /^#\s+(?:Carousel:\s*)?(.+)$/m.exec(text);
   return match ? (match[1] ?? "").trim() : null;
-}
-
-// A batch's captions.md: one "## N. Title" section per Reel, naming its video file and holding its caption
-export function parseReelCaptions(markdown: string): Map<string, { title: string; caption: string }> {
-  const found = new Map<string, { title: string; caption: string }>();
-  for (const section of markdown.split(/\n(?=## )/)) {
-    const heading = /^## (?:\d+\.\s*)?(.+)$/m.exec(section);
-    const video = /Video:\s*`([^`]+\.mp4)`/.exec(section);
-    const caption = firstCodeBlock(section);
-    if (heading && video && caption) found.set(video[1] ?? "", { title: (heading[1] ?? "").trim(), caption });
-  }
-  return found;
 }
 
 // "PausePower" → "Pause power", "my-trip" → "My trip"

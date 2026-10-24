@@ -1,4 +1,4 @@
-// The scheduler's work on your computer: reading and saving the queue, copying media from renders/
+// The scheduler's work on your computer: reading and saving the queue, copying media from library/
 // into public/media/ (PNG to JPEG with sharp), and sending the schedule to GitHub. Never runs on Vercel.
 // File access is marked turbopackIgnore: without the marks the production build would pack the whole
 // project (media included) into the server function.
@@ -13,12 +13,11 @@ import { readyToMove, type ServerReport } from "../status";
 
 const run = promisify(execFile);
 
-// The scheduler runs from social/; renders/ and the git repository are one level up
-export const SOCIAL = process.cwd();
-export const REPO = resolve(/*turbopackIgnore: true*/ SOCIAL, "..");
-export const RENDERS = join(/*turbopackIgnore: true*/ REPO, "renders");
-const QUEUE = join(/*turbopackIgnore: true*/ SOCIAL, "src", "data", "queue.json");
-const PUBLIC = join(/*turbopackIgnore: true*/ SOCIAL, "public");
+// The scheduler runs from the repository's own folder, which holds library/ too
+export const REPO = process.cwd();
+export const LIBRARY = join(/*turbopackIgnore: true*/ REPO, "library");
+const QUEUE = join(/*turbopackIgnore: true*/ REPO, "src", "data", "queue.json");
+const PUBLIC = join(/*turbopackIgnore: true*/ REPO, "public");
 
 // True only when running with "pnpm dev" on your computer
 export const isLocal = (): boolean => process.env.NODE_ENV === "development" && !process.env.VERCEL;
@@ -32,10 +31,10 @@ function writeQueue(queue: Queue): void {
   writeFileSync(/*turbopackIgnore: true*/ QUEUE, `${JSON.stringify({ ...queue, posts }, null, 2)}\n`);
 }
 
-// A path under renders/, refusing anything that climbs out of it
-export function inRenders(path: string): string {
-  const full = resolve(/*turbopackIgnore: true*/ RENDERS, path);
-  if (!full.startsWith(RENDERS + sep)) throw new Error("That file isn't in renders/");
+// A path under library/, refusing anything that climbs out of it
+export function inLibrary(path: string): string {
+  const full = resolve(/*turbopackIgnore: true*/ LIBRARY, path);
+  if (!full.startsWith(LIBRARY + sep)) throw new Error("That file isn't in library/");
   return full;
 }
 
@@ -50,7 +49,7 @@ const toJpeg = (from: string, to: string) => sharp(from).flatten({ background: "
 
 // What the person chose in the scheduler
 export type Fields = { date: string; time: string; caption: string; as: "reel" | "story" };
-// The cover: the item's own cover, another image from renders/, or a moment of the video (seconds)
+// The cover: the item's own cover, another image from its folder, or a moment of the video (seconds)
 export type CoverChoice = { kind: "default" } | { kind: "image"; path: string } | { kind: "frame"; seconds: number };
 
 // Copy the chosen cover into the post's folder (or clear it for a frame), returning the post's cover fields
@@ -65,11 +64,11 @@ async function applyCover(id: string, item: LibraryItem | undefined, choice: Cov
     rmSync(/*turbopackIgnore: true*/ file, { force: true });
     return {};
   }
-  await toJpeg(inRenders(source), file);
+  await toJpeg(inLibrary(source), file);
   return { cover: `media/${id}/cover.jpg`, coverSource: source };
 }
 
-// Schedule a renders/ item: copy its media under its own folder and add it to the queue
+// Schedule a library/ item: copy its media under its own folder and add it to the queue
 export async function createPost(item: LibraryItem, fields: Fields, cover: CoverChoice): Promise<Post> {
   if (item.problems.length > 0) throw new Error(item.problems.join("; "));
   if (item.posted) throw new Error("This has already been posted");
@@ -83,12 +82,12 @@ export async function createPost(item: LibraryItem, fields: Fields, cover: Cover
   const { as, ...rest } = fields;
   let post: Post;
   if (item.kind === "reel") {
-    copyFileSync(/*turbopackIgnore: true*/ inRenders(item.files[0] ?? ""), join(/*turbopackIgnore: true*/ folder, "reel.mp4"));
+    copyFileSync(/*turbopackIgnore: true*/ inLibrary(item.files[0] ?? ""), join(/*turbopackIgnore: true*/ folder, "reel.mp4"));
     post = { id, ...rest, source: item.key, kind: "reel", video: `media/${id}/reel.mp4`, ...(as === "story" ? { as } : {}), ...(await applyCover(id, item, cover)) };
   } else {
     const images: string[] = [];
     for (const [i, file] of item.files.entries()) {
-      await toJpeg(inRenders(file), join(/*turbopackIgnore: true*/ folder, `${i + 1}.jpg`));
+      await toJpeg(inLibrary(file), join(/*turbopackIgnore: true*/ folder, `${i + 1}.jpg`));
       images.push(`media/${id}/${i + 1}.jpg`);
     }
     post = { id, ...rest, source: item.key, kind: "carousel", images };
@@ -116,14 +115,14 @@ export async function updatePost(id: string, fields: Fields, cover: CoverChoice 
   writeQueue({ ...queue, posts: queue.posts.map((post) => (post.id === id ? next : post)) });
 }
 
-// Once everything scheduled from an item has gone out, move its files to renders/posted/ (same layout).
+// Once everything scheduled from an item has gone out, move its folder to library/posted/.
 // Returns the titles moved. Items with a post still waiting stay where they are.
 export function movePosted(items: LibraryItem[], posts: Post[], posted: ReadonlySet<string>): string[] {
   const moved: string[] = [];
   for (const item of readyToMove(items, posts, posted)) {
     for (const path of item.moves) {
-      const from = inRenders(path);
-      const to = inRenders(`posted/${path}`);
+      const from = inLibrary(path);
+      const to = inLibrary(`posted/${path}`);
       if (!existsSync(/*turbopackIgnore: true*/ from)) continue;
       mkdirSync(/*turbopackIgnore: true*/ dirname(/*turbopackIgnore: true*/ to), { recursive: true });
       renameSync(/*turbopackIgnore: true*/ from, to);
@@ -141,10 +140,23 @@ export function removePost(id: string): void {
 
 const git = async (...args: string[]): Promise<string> => (await run("git", args, { cwd: REPO, timeout: 60_000 })).stdout.trim();
 
-// Whether renders/ has changes GitHub doesn't (posted items moved, new files added); Send takes them along
-export async function rendersChanged(): Promise<boolean> {
+// Bring in anything sent from another computer, once each time the scheduler starts. Only fast-forwards,
+// so it never touches unsent work; if it can't (offline, or changes on both sides), Send says so later.
+let pulled = false;
+export async function pullLatest(): Promise<void> {
+  if (pulled) return;
+  pulled = true;
   try {
-    return (await git("status", "--porcelain", "--", "renders")) !== "";
+    if ((await git("rev-parse", "--abbrev-ref", "HEAD")) === "main") await git("pull", "--ff-only", "--quiet", "origin", "main");
+  } catch {
+    // Offline or diverged: carry on with what's here
+  }
+}
+
+// Whether library/ has changes GitHub doesn't (new items added, posted ones moved); Send takes them along
+export async function libraryChanged(): Promise<boolean> {
+  try {
+    return (await git("status", "--porcelain", "--", "library")) !== "";
   } catch {
     return false;
   }
@@ -154,21 +166,21 @@ export async function rendersChanged(): Promise<boolean> {
 export async function sentQueue(): Promise<Map<string, Post> | null> {
   try {
     await git("fetch", "--quiet", "origin", "main");
-    const text = await git("show", "origin/main:social/src/data/queue.json");
+    const text = await git("show", "origin/main:src/data/queue.json");
     return new Map((JSON.parse(text) as Queue).posts.map((post) => [post.id, post]));
   } catch {
     return null;
   }
 }
 
-// Send: commit only the queue, the media, and renders/ (posted items moving to renders/posted/) to main and push. Vercel redeploys the publisher in a minute or two.
+// Send: commit the queue, the media, and library/ (new items, posted ones moving to library/posted/) to main and push. Vercel redeploys the publisher in a minute or two.
 export async function sendSchedule(): Promise<string> {
   const branch = await git("rev-parse", "--abbrev-ref", "HEAD");
   if (branch !== "main") throw new Error(`Your copy is on the branch "${branch}". Switch to main first: git checkout main`);
   const problems = queueProblems(readQueue(), (path) => existsSync(/*turbopackIgnore: true*/ join(/*turbopackIgnore: true*/ PUBLIC, path)));
   if (problems.length > 0) throw new Error(problems.join("\n"));
   await git("pull", "--ff-only", "--quiet", "origin", "main");
-  const paths = ["social/src/data/queue.json", "social/public/media", "renders"];
+  const paths = ["src/data/queue.json", "public/media", "library"];
   await git("add", "-A", "--", ...paths);
   try {
     await git("diff", "--cached", "--quiet", "--", ...paths);
@@ -181,7 +193,7 @@ export async function sendSchedule(): Promise<string> {
   return "Sent. The server has the new schedule in a minute or two.";
 }
 
-// What the publisher says has gone out. Needs SOCIAL_URL and CRON_SECRET in social/.env.local.
+// What the publisher says has gone out. Needs SOCIAL_URL and CRON_SECRET in .env.local.
 export async function serverReport(): Promise<ServerReport> {
   const url = process.env.SOCIAL_URL;
   const secret = process.env.CRON_SECRET;

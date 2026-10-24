@@ -1,5 +1,5 @@
 "use client";
-// The post scheduler you run on your computer. The main screen is for scheduling: what's in renders/ (Ready,
+// The post scheduler you run on your computer. The main screen is for scheduling: what's in library/ (Ready,
 // Scheduled, Posted), the post panel, and Up next. The calendar opens as its own window on top.
 // Everything it changes is saved on this computer until "Send to server".
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -79,7 +79,7 @@ export function Scheduler() {
 
   const apply = useCallback((next: Data) => {
     setData(next);
-    if (next.moved.length > 0) setMessage({ text: `Posted, so moved to renders/posted/: ${next.moved.join(", ")}. They go up with your next Send.`, bad: false });
+    if (next.moved.length > 0) setMessage({ text: `Posted, so moved to library/posted/: ${next.moved.join(", ")}. They go up with your next Send.`, bad: false });
   }, []);
   const load = async () => apply(await fetchData());
 
@@ -151,7 +151,7 @@ export function Scheduler() {
           <span style={{ width: 28, height: 28, borderRadius: 8, background: C.green }} />
           <b style={{ font: "600 20px Georgia, serif" }}>Post scheduler</b>
           <span style={{ color: C.muted }}>
-            · {data.timeZone.replace("_", " ")} time · {data.server ? "connected" : "not connected to the server (see social/README), so Posted can't be shown"}
+            · {data.timeZone.replace("_", " ")} time · {data.server ? "connected" : "not connected to the server (see README), so Posted can't be shown"}
             {data.github ? "" : " · couldn't reach GitHub"}
           </span>
         </div>
@@ -188,10 +188,10 @@ export function Scheduler() {
           </div>
           <p style={{ margin: "6px 0 0", fontSize: 13, color: C.muted }}>
             {tab === "ready"
-              ? "Everything in renders/. Click one to schedule it. Once it has posted, its files move to renders/posted/."
+              ? "Everything in library/. Click one to schedule it. Once it has posted, its files move to library/posted/."
               : tab === "scheduled"
                 ? "Everything waiting to post, soonest first. Click one to change it."
-                : "Already on Instagram. These files are in renders/posted/."}
+                : "Already on Instagram. These files are in library/posted/."}
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14, marginTop: 14 }}>
@@ -243,7 +243,7 @@ export function Scheduler() {
                 if (editing.mode !== "edit") return;
                 const item = itemFor(editing.entry.post.source);
                 if (item && !item.posted) setEditing({ ...editing, mode: "new", item, date: nextFreeDay(), coverChanged: true });
-                else setMessage({ text: "That item has moved to renders/posted/, so it can't be scheduled again from here.", bad: true });
+                else setMessage({ text: "That item has moved to library/posted/, so it can't be scheduled again from here.", bad: true });
               }}
               onRemove={() => {
                 if (editing.mode !== "edit") return;
@@ -305,7 +305,7 @@ export function Scheduler() {
 function Card({ thumb, title, detail, bad, selected, onClick, children }: { thumb: string; title: string; detail: string; bad?: boolean; selected?: boolean; onClick?: () => void; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick} disabled={!onClick} style={{ display: "flex", flexDirection: "column", gap: 6, textAlign: "left", background: C.card, border: "none", borderRadius: 16, padding: 8, cursor: onClick ? "pointer" : "default", outline: selected ? `3px solid ${C.orange}` : "none", color: C.ink }}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- local preview straight from renders/ */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- local preview straight from library/ */}
       {thumb ? <img src={thumb} alt="" style={{ width: "100%", aspectRatio: "4 / 5", objectFit: "cover", borderRadius: 10 }} /> : <span style={{ width: "100%", aspectRatio: "4 / 5", borderRadius: 10, background: C.ink }} />}
       <b style={{ fontSize: 13 }}>{title}</b>
       <span style={{ fontSize: 12, color: bad ? C.red : C.muted }}>{detail}</span>
@@ -343,7 +343,7 @@ function PostPanel({
   const locked = entry?.locked ?? false;
   const isReel = editing.mode === "new" ? editing.item.kind === "reel" : editing.entry.post.kind === "reel";
   const story = isReel && editing.as === "story";
-  // The video and images to show: renders/ files for a new post, the copied media for a scheduled one
+  // The video and images to show: library/ files for a new post, the copied media for a scheduled one
   const video = editing.mode === "new" ? fromRenders(editing.item.files[0] ?? "") : editing.entry.post.kind === "reel" ? `/${editing.entry.post.video}` : "";
   const slides = editing.mode === "new" ? editing.item.files.map(fromRenders) : editing.entry.post.kind === "carousel" ? editing.entry.post.images.map((path) => `/${path}`) : [];
   const item = editing.item;

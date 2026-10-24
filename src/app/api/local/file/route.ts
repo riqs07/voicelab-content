@@ -1,7 +1,7 @@
-// Serves a file from renders/ so the scheduler can show it before it's scheduled. Local only.
+// Serves a file from library/ so the scheduler can show it before it's scheduled. Local only.
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { Readable } from "node:stream";
-import { inRenders, isLocal } from "@/lib/local/schedule";
+import { inLibrary, isLocal } from "@/lib/local/schedule";
 
 const TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", mp4: "video/mp4", mov: "video/quicktime" };
 
@@ -10,7 +10,7 @@ export function GET(request: Request): Response {
   const path = new URL(request.url).searchParams.get("path") ?? "";
   let full: string;
   try {
-    full = inRenders(path);
+    full = inLibrary(path);
   } catch {
     return new Response("Not found", { status: 404 });
   }
