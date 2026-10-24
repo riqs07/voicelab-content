@@ -13,9 +13,14 @@ pnpm schedule
 
 Then open http://localhost:3000.
 
-- **Ready to post** (left) lists everything finished in `renders/`. The scheduler only posts from there.
-- **Drag an item onto a day**, or click it. Then set the time, edit the caption and press **Schedule**. The character and hashtag counts follow Instagram's limits.
-- **Click a post in the week** to change its day, time or caption, duplicate it or remove it.
+- **Ready to post** shows everything finished in `renders/`, and the scheduler only posts from there. The tabs switch to **Scheduled** (everything waiting) and **Posted** (already on Instagram).
+- **Click an item** to open the post panel:
+  - It suggests the next free day; set the time.
+  - Choose **Post as Reel** (the default) or **Post as Story**. A Story shows for 24 hours and has no caption or cover.
+  - Pick the **cover**: the Reel's own cover is used unless you choose another image or **Pick a frame…** from the video.
+  - Edit the caption, with Instagram's character and hashtag limits counted, then press **Schedule**.
+- **Up next** (right) lists the next few posts. Click one to change it.
+- **Calendar** (top) opens a window with This week, 2 weeks or Month. Click a post to open it, or drag it to another day.
 - **Send to server** (top right) pushes the schedule to GitHub. The server has it a minute or two later.
 
 You can keep changing posts after sending: each Send replaces the server's schedule. Posts that went out, or whose time has passed, are locked. A post due within about 90 minutes is marked **Posting soon**, because a change may arrive after it has gone out.
@@ -28,13 +33,15 @@ Statuses:
 
 To see Posted and Failed, copy `.env.example` to `.env.local` here and fill it in.
 
+**Posted items tidy themselves up.** Once everything scheduled from an item has posted, the scheduler moves its files into `renders/posted/`, keeping the same folders. A Reel's 9:16 file, 4:5 file and cover move together, and its caption stays in `captions.md`. The move needs `.env.local`, happens while the scheduler is open, and goes up with your next Send.
+
 ### Adding something new to post
 
 Put it in `renders/` first; it then appears under Ready to post.
 
-- **A Reel:** `renders/uploads/<name>/` with one `.mp4` (9:16), an optional `cover.png` or `cover.jpg`, and an optional `caption.md` or `caption.txt`.
+- **A Reel or Story:** `renders/uploads/<name>/` with one `.mp4` (9:16 only), a `cover.png` or `cover.jpg`, and an optional `caption.md` or `caption.txt`. Any other images in the folder can be picked as the cover.
 - **A carousel or a single photo:** `renders/uploads/<name>/` with the images named `1.png`, `2.png`… (up to 10), plus an optional caption file.
-- Rendered Reels in `renders/batch-*/` and carousels in `renders/carousels/` show up the same way, with their captions from `captions.md` and `caption.md`.
+- Rendered Reels in `renders/batch-*/` and carousels in `renders/carousels/` show up the same way, with their captions from `captions.md` and `caption.md`. See "Guidelines for new videos" in `video/README.md`.
 
 PNGs are turned into JPEG when scheduled, because Instagram's API only takes JPEG. Videos must be MP4.
 
@@ -69,4 +76,5 @@ The token lasts 60 days and is renewed weekly. A brand-new token can't be renewe
 ## Limits
 
 - Instagram's API can't add music from its library, tag people, or set the "AI info" label. Add the label by hand after a Reel posts.
+- Stories posted through the API can't have stickers, links or music. Check that Story posting works on your account with one test Story first.
 - GitHub turns off scheduled workflows in a repository with no activity for 60 days. Any push turns them back on.

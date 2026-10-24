@@ -141,6 +141,15 @@ export function removePost(id: string): void {
 
 const git = async (...args: string[]): Promise<string> => (await run("git", args, { cwd: REPO, timeout: 60_000 })).stdout.trim();
 
+// Whether renders/ has changes GitHub doesn't (posted items moved, new files added); Send takes them along
+export async function rendersChanged(): Promise<boolean> {
+  try {
+    return (await git("status", "--porcelain", "--", "renders")) !== "";
+  } catch {
+    return false;
+  }
+}
+
 // The queue as GitHub has it, which is what the server posts from. Fetches first; null if offline.
 export async function sentQueue(): Promise<Map<string, Post> | null> {
   try {
