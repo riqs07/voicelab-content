@@ -3,13 +3,13 @@
 // File access is marked turbopackIgnore: without the marks the production build would pack the whole
 // project (media included) into the server function.
 import { execFile } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import sharp from "sharp";
 import type { LibraryItem } from "../library";
 import { queueProblems, type Post, type Queue } from "../queue";
-import type { ServerReport } from "../status";
+import { readyToMove, type ServerReport } from "../status";
 
 const run = promisify(execFile);
 
@@ -48,9 +48,31 @@ const slug = (text: string): string =>
 
 const toJpeg = (from: string, to: string) => sharp(from).flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toFile(to);
 
+// What the person chose in the scheduler
+export type Fields = { date: string; time: string; caption: string; as: "reel" | "story" };
+// The cover: the item's own cover, another image from renders/, or a moment of the video (seconds)
+export type CoverChoice = { kind: "default" } | { kind: "image"; path: string } | { kind: "frame"; seconds: number };
+
+// Copy the chosen cover into the post's folder (or clear it for a frame), returning the post's cover fields
+async function applyCover(id: string, item: LibraryItem | undefined, choice: CoverChoice): Promise<Pick<Extract<Post, { kind: "reel" }>, "cover" | "coverSource" | "coverFrame">> {
+  const file = join(/*turbopackIgnore: true*/ PUBLIC, "media", id, "cover.jpg");
+  if (choice.kind === "frame") {
+    rmSync(/*turbopackIgnore: true*/ file, { force: true });
+    return { coverFrame: choice.seconds };
+  }
+  const source = choice.kind === "image" ? choice.path : item?.cover;
+  if (!source) {
+    rmSync(/*turbopackIgnore: true*/ file, { force: true });
+    return {};
+  }
+  await toJpeg(inRenders(source), file);
+  return { cover: `media/${id}/cover.jpg`, coverSource: source };
+}
+
 // Schedule a renders/ item: copy its media under its own folder and add it to the queue
-export async function createPost(item: LibraryItem, fields: { date: string; time: string; caption: string }): Promise<Post> {
-  if (item.problems.length > 0) throw new Error(item.problems.join(/*turbopackIgnore: true*/ "; "));
+export async function createPost(item: LibraryItem, fields: Fields, cover: CoverChoice): Promise<Post> {
+  if (item.problems.length > 0) throw new Error(item.problems.join("; "));
+  if (item.posted) throw new Error("This has already been posted");
   const queue = readQueue();
   // Named after the file it came from, e.g. "talkback-2026-10-26"
   const base = `${slug(item.key.split("/").pop() ?? item.title)}-${fields.date}`;
@@ -58,27 +80,57 @@ export async function createPost(item: LibraryItem, fields: { date: string; time
   for (let n = 2; queue.posts.some((post) => post.id === id) || existsSync(/*turbopackIgnore: true*/ join(/*turbopackIgnore: true*/ PUBLIC, "media", id)); n += 1) id = `${base}-${n}`;
   const folder = join(/*turbopackIgnore: true*/ PUBLIC, "media", id);
   mkdirSync(/*turbopackIgnore: true*/ folder, { recursive: true });
+  const { as, ...rest } = fields;
   let post: Post;
   if (item.kind === "reel") {
     copyFileSync(/*turbopackIgnore: true*/ inRenders(item.files[0] ?? ""), join(/*turbopackIgnore: true*/ folder, "reel.mp4"));
-    if (item.cover) await toJpeg(inRenders(item.cover), join(/*turbopackIgnore: true*/ folder, "cover.jpg"));
-    post = { id, ...fields, source: item.key, kind: "reel", video: `media/${id}/reel.mp4`, ...(item.cover ? { cover: `media/${id}/cover.jpg` } : {}) };
+    post = { id, ...rest, source: item.key, kind: "reel", video: `media/${id}/reel.mp4`, ...(as === "story" ? { as } : {}), ...(await applyCover(id, item, cover)) };
   } else {
     const images: string[] = [];
     for (const [i, file] of item.files.entries()) {
       await toJpeg(inRenders(file), join(/*turbopackIgnore: true*/ folder, `${i + 1}.jpg`));
       images.push(`media/${id}/${i + 1}.jpg`);
     }
-    post = { id, ...fields, source: item.key, kind: "carousel", images };
+    post = { id, ...rest, source: item.key, kind: "carousel", images };
   }
   writeQueue({ ...queue, posts: [...queue.posts, post] });
   return post;
 }
 
-export function updatePost(id: string, fields: { date: string; time: string; caption: string }): void {
+// Change a post's day, time, caption, Reel/Story, and (for a Reel) its cover
+export async function updatePost(id: string, fields: Fields, cover: CoverChoice | null, item: LibraryItem | undefined): Promise<void> {
   const queue = readQueue();
-  if (!queue.posts.some((post) => post.id === id)) throw new Error("That post isn't in the queue any more");
-  writeQueue({ ...queue, posts: queue.posts.map((post) => (post.id === id ? { ...post, ...fields } : post)) });
+  const old = queue.posts.find((post) => post.id === id);
+  if (!old) throw new Error("That post isn't in the queue any more");
+  const { as, ...rest } = fields;
+  let next: Post;
+  if (old.kind === "reel") {
+    const covers = cover ? await applyCover(id, item, cover) : { cover: old.cover, coverSource: old.coverSource, coverFrame: old.coverFrame };
+    // Rebuilt field by field so a cleared cover or a switch back to Reel leaves nothing stale behind
+    next = { id: old.id, source: old.source, kind: "reel", video: old.video, ...rest, ...(as === "story" ? { as } : {}) };
+    if (covers.cover) Object.assign(next, { cover: covers.cover, coverSource: covers.coverSource });
+    else if (covers.coverFrame !== undefined) Object.assign(next, { coverFrame: covers.coverFrame });
+  } else {
+    next = { ...old, ...rest };
+  }
+  writeQueue({ ...queue, posts: queue.posts.map((post) => (post.id === id ? next : post)) });
+}
+
+// Once everything scheduled from an item has gone out, move its files to renders/posted/ (same layout).
+// Returns the titles moved. Items with a post still waiting stay where they are.
+export function movePosted(items: LibraryItem[], posts: Post[], posted: ReadonlySet<string>): string[] {
+  const moved: string[] = [];
+  for (const item of readyToMove(items, posts, posted)) {
+    for (const path of item.moves) {
+      const from = inRenders(path);
+      const to = inRenders(`posted/${path}`);
+      if (!existsSync(/*turbopackIgnore: true*/ from)) continue;
+      mkdirSync(/*turbopackIgnore: true*/ dirname(/*turbopackIgnore: true*/ to), { recursive: true });
+      renameSync(/*turbopackIgnore: true*/ from, to);
+    }
+    moved.push(item.title);
+  }
+  return moved;
 }
 
 export function removePost(id: string): void {
@@ -100,14 +152,14 @@ export async function sentQueue(): Promise<Map<string, Post> | null> {
   }
 }
 
-// Send: commit only the queue and the media to main and push. Vercel redeploys the publisher in a minute or two.
+// Send: commit only the queue, the media, and renders/ (posted items moving to renders/posted/) to main and push. Vercel redeploys the publisher in a minute or two.
 export async function sendSchedule(): Promise<string> {
   const branch = await git("rev-parse", "--abbrev-ref", "HEAD");
   if (branch !== "main") throw new Error(`Your copy is on the branch "${branch}". Switch to main first: git checkout main`);
   const problems = queueProblems(readQueue(), (path) => existsSync(/*turbopackIgnore: true*/ join(/*turbopackIgnore: true*/ PUBLIC, path)));
-  if (problems.length > 0) throw new Error(problems.join(/*turbopackIgnore: true*/ "\n"));
+  if (problems.length > 0) throw new Error(problems.join("\n"));
   await git("pull", "--ff-only", "--quiet", "origin", "main");
-  const paths = ["social/src/data/queue.json", "social/public/media"];
+  const paths = ["social/src/data/queue.json", "social/public/media", "renders"];
   await git("add", "-A", "--", ...paths);
   try {
     await git("diff", "--cached", "--quiet", "--", ...paths);

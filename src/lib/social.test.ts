@@ -125,6 +125,21 @@ describe("publish", () => {
     expect(calls[4]?.params.get("creation_id")).toBe("c1");
   });
 
+  it("uses a chosen moment of the video as the cover when there is no cover image", async () => {
+    const { calls, deps } = fakeInstagram([[200, { user_id: "42" }], [200, { id: "c1" }], [200, { status_code: "FINISHED" }], [200, { id: "m1" }]]);
+    await publish({ ...reel, cover: undefined, coverFrame: 12.5 }, deps);
+    expect(calls[1]?.params.get("thumb_offset")).toBe("12500");
+    expect(calls[1]?.params.has("cover_url")).toBe(false);
+  });
+
+  it("posts a Story without a caption or cover", async () => {
+    const { calls, deps } = fakeInstagram([[200, { user_id: "42" }], [200, { id: "c1" }], [200, { status_code: "FINISHED" }], [200, { id: "m1" }]]);
+    await publish({ ...reel, as: "story" }, deps);
+    expect(calls[1]?.params.get("media_type")).toBe("STORIES");
+    expect(calls[1]?.params.has("caption")).toBe(false);
+    expect(calls[1]?.params.has("cover_url")).toBe(false);
+  });
+
   it("makes one container per slide, in order, then the carousel", async () => {
     const { calls, deps } = fakeInstagram([
       [200, { user_id: "42" }],

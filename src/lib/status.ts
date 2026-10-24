@@ -1,5 +1,6 @@
 // Each post's status in the scheduler, and when it can still be changed. Plain logic, shared by the
 // scheduler's API (on your computer) and its tests.
+import type { LibraryItem } from "./library";
 import { when, type Post } from "./queue";
 
 // What the publisher reports (from /api/status), or null when the scheduler isn't connected to it
@@ -45,4 +46,14 @@ export function unsentChanges(local: Post[], sent: ReadonlyMap<string, Post> | n
   const changed = local.filter((post) => statusOf(post, sent, server) === "not-sent").length;
   const removed = sent ? [...sent.keys()].filter((id) => !here.has(id) && !server?.published[id]).length : 0;
   return changed + removed;
+}
+
+// Items whose every scheduled post has gone out, so their files can move to renders/posted/.
+// An item scheduled twice waits for the second; an item never scheduled never moves.
+export function readyToMove(items: LibraryItem[], posts: Post[], posted: ReadonlySet<string>): LibraryItem[] {
+  return items.filter((item) => {
+    if (item.posted) return false;
+    const mine = posts.filter((post) => post.source === item.key);
+    return mine.length > 0 && mine.every((post) => posted.has(post.id));
+  });
 }

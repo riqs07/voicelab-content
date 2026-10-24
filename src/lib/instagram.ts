@@ -62,9 +62,14 @@ async function waitUntilReady(deps: Deps, id: string): Promise<void> {
 export async function publish(post: Post, deps: Deps): Promise<string> {
   const user = await accountId(deps);
   let creation: string;
-  if (post.kind === "reel") {
+  if (post.kind === "reel" && post.as === "story") {
+    // Stories take no caption or cover; they show full screen for 24 hours
+    creation = await container(deps, user, { media_type: "STORIES", video_url: mediaUrl(deps.baseUrl, post.video) });
+  } else if (post.kind === "reel") {
     const params: Record<string, string> = { media_type: "REELS", video_url: mediaUrl(deps.baseUrl, post.video), caption: post.caption, share_to_feed: "true" };
+    // The cover: a chosen image, else a chosen moment of the video, else Instagram picks
     if (post.cover) params.cover_url = mediaUrl(deps.baseUrl, post.cover);
+    else if (post.coverFrame !== undefined) params.thumb_offset = String(Math.round(post.coverFrame * 1000));
     creation = await container(deps, user, params);
   } else if (post.images.length === 1) {
     creation = await container(deps, user, { image_url: mediaUrl(deps.baseUrl, post.images[0] ?? ""), caption: post.caption });

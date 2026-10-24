@@ -1,6 +1,8 @@
 // What's ready to post: everything finished in renders/. The scheduler only ever posts from here, so a new
 // photo or video starts life as a file in renders/ (for your own, a folder in renders/uploads/).
-//   renders/batch-*/X-story.mp4          a Reel; its cover is covers/X-cover.png, its caption is in captions.md
+// Once posted, an item's files move to renders/posted/ in the same layout.
+//   renders/batch-*/X-story.mp4          a Reel (9:16); its cover is covers/X-cover.png, its caption is in
+//                                         captions.md. X-feed.mp4 (4:5, for other platforms) moves with it
 //   renders/carousels/<name>/1.png ...   a carousel (or a single photo), caption in caption.md
 //   renders/uploads/<name>/              a folder with one .mp4 (a Reel, optional cover.png/.jpg) or images,
 //                                         and an optional caption.md or caption.txt
@@ -15,6 +17,12 @@ export type LibraryItem = {
   // Paths under renders/: the video, or the images in order
   files: string[];
   cover?: string;
+  // Other images that could be its cover (paths under renders/)
+  coverOptions: string[];
+  // Everything that moves to renders/posted/ with it: its files, or its whole folder
+  moves: string[];
+  // In renders/posted/: already on Instagram
+  posted: boolean;
   // Anything that would stop it posting (shown in the scheduler, never posted)
   problems: string[];
 };

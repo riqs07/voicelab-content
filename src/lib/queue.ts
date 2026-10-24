@@ -7,8 +7,9 @@ type Base = { id: string; date: string; time: string; source: string; caption: s
 export type Post =
   // One or more photos (2 or more make a carousel), JPEG only: Instagram's API refuses PNG
   | (Base & { kind: "carousel"; images: string[] })
-  // A Reel: an MP4, with an optional JPEG cover
-  | (Base & { kind: "reel"; video: string; cover?: string });
+  // A 9:16 MP4, posted as a Reel (the default) or a Story (24 hours, no caption). Its cover is a JPEG
+  // (cover, copied from coverSource in renders/) or a moment in the video (coverFrame, in seconds).
+  | (Base & { kind: "reel"; video: string; as?: "reel" | "story"; cover?: string; coverSource?: string; coverFrame?: number });
 
 export type Queue = { timeZone: string; posts: Post[] };
 
@@ -44,6 +45,7 @@ export function queueProblems(queue: Queue, fileExists: (path: string) => boolea
     if (post.kind === "carousel" && post.images.some((path) => !path.endsWith(".jpg"))) problems.push(`${name}: images must be .jpg`);
     if (post.kind === "reel" && !post.video.endsWith(".mp4")) problems.push(`${name}: the video must be .mp4`);
     if (post.kind === "reel" && post.cover && !post.cover.endsWith(".jpg")) problems.push(`${name}: the cover must be .jpg`);
+    if (post.kind === "reel" && post.coverFrame !== undefined && !(post.coverFrame >= 0)) problems.push(`${name}: the cover frame must be a time in seconds`);
     for (const path of media) {
       if (!MEDIA.test(path)) problems.push(`${name}: "${path}" should look like media/<folder>/<name>.jpg`);
       else if (!fileExists(path)) problems.push(`${name}: "${path}" is not in public/`);
