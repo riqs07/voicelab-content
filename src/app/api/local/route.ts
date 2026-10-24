@@ -1,7 +1,7 @@
 // The scheduler's own API, only when it runs on your computer (pnpm dev). On Vercel it doesn't exist.
 // GET: the queue, library/, and each post's status. POST: create, update, remove or send.
 import { scanLibrary } from "@/lib/local/scan";
-import { createPost, isLocal, movePosted, LIBRARY, libraryChanged, pullLatest, readQueue, removePost, sendSchedule, sentQueue, serverReport, updatePost, type CoverChoice, type Fields } from "@/lib/local/schedule";
+import { createPost, isLocal, movePosted, LIBRARY, libraryChanged, pullLatest, unpushed, readQueue, removePost, sendSchedule, sentQueue, serverReport, updatePost, type CoverChoice, type Fields } from "@/lib/local/schedule";
 import { nowIn } from "@/lib/queue";
 import { isLocked, postingSoon, statusOf, unsentChanges } from "@/lib/status";
 
@@ -26,7 +26,7 @@ export async function GET(): Promise<Response> {
     posts,
     library: scanLibrary(LIBRARY),
     // Posts to send, plus one for library/ when items were added or moved there
-    changes: unsentChanges(queue.posts, sent, server) + ((await libraryChanged()) ? 1 : 0),
+    changes: unsentChanges(queue.posts, sent, server) + ((await libraryChanged()) ? 1 : 0) + ((await unpushed()) ? 1 : 0),
     moved,
     github: sent !== null,
     server: server !== null,

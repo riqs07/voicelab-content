@@ -162,6 +162,15 @@ export async function libraryChanged(): Promise<boolean> {
   }
 }
 
+// Whether there are saved schedules that haven't reached GitHub yet (an earlier upload failed)
+export async function unpushed(): Promise<boolean> {
+  try {
+    return Number(await git("rev-list", "--count", "origin/main..HEAD")) > 0;
+  } catch {
+    return false;
+  }
+}
+
 // The queue as GitHub has it, which is what the server posts from. Fetches first; null if offline.
 export async function sentQueue(): Promise<Map<string, Post> | null> {
   try {
@@ -182,14 +191,22 @@ export async function sendSchedule(): Promise<string> {
   await git("pull", "--ff-only", "--quiet", "origin", "main");
   const paths = ["src/data/queue.json", "public/media", "library"];
   await git("add", "-A", "--", ...paths);
+  let staged = true;
   try {
     await git("diff", "--cached", "--quiet", "--", ...paths);
-    return "Nothing new to send.";
+    staged = false;
   } catch {
     // diff exits non-zero when there are changes, which is what we want
   }
-  await git("commit", "--quiet", "-m", "Schedule Instagram posts (from the scheduler)", "--", ...paths);
-  await git("push", "--quiet", "origin", "main");
+  if (staged) await git("commit", "--quiet", "-m", "Schedule Instagram posts (from the scheduler)", "--", ...paths);
+  // Also covers a schedule saved by an earlier Send whose upload failed
+  if (!staged && !(await unpushed())) return "Nothing new to send.";
+  try {
+    await git("push", "--quiet", "origin", "main");
+  } catch (error) {
+    const detail = error instanceof Error && "stderr" in error ? String((error as { stderr: unknown }).stderr).trim() : "";
+    throw new Error(`The schedule is saved on this computer, but GitHub didn't accept the upload.${detail ? `\nGit said: ${detail}` : ""}\nTry "git push origin main" in this folder to see why; then press Send again.`);
+  }
   return "Sent. The server has the new schedule in a minute or two.";
 }
 
